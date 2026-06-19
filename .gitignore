@@ -160,4 +160,30 @@ cython_debug/
 #.idea/
 
 .ruff_cache/
+.ty_cache/
 *.zip
+
+# ML / PyTorch artifacts
+*.pt
+*.pth
+*.ckpt
+*.bin
+checkpoints/
+wandb/
+
+# Profiling output
+profile.json
+profile.svg
+*.prof
+
+# Large data files
+data/
+*.txt
+*.jsonl
+*.parquet
+*.arrow
+
+# Assignment output / scratch
+output/
+answers/
+merge_output.json
