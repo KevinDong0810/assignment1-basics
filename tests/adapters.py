@@ -592,4 +592,4 @@ def run_train_bpe(
     from .bpe_trainer import BPETrainer
     trainer = BPETrainer(vocab_size, special_tokens)
     trainer.train(input_path)
-    return trainer.get_vocab, trainer.get_merge
+    return trainer.get_vocab(), trainer.get_merge()
