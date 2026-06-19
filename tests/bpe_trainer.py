@@ -2,6 +2,7 @@ import regex as re
 import os
 from collections import defaultdict
 import json
+import copy
 
 
 class BPETrainer(object):
@@ -28,12 +29,18 @@ class BPETrainer(object):
 
         # frequency count
         self.word_freq_map = defaultdict(int)
+        self.word_token_map = defaultdict(list)
         PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         for text in split_texts:
             match_iter = re.finditer(PAT, text)
             for word in match_iter:
                 word_s = word.group()
                 self.word_freq_map[word_s.encode("utf-8")] += 1
+        for word in self.word_freq_map.keys():
+            token_list = []
+            for i in range(len(word)):
+                token_list.append(word[i:i+1])
+            self.word_token_map[word] = token_list
 
         pair_freq_map, pair_set_map = self.build_freq_map()
         
@@ -76,43 +83,70 @@ class BPETrainer(object):
     def get_highest_pair(self, pair_freq_mcap: dict):
         return max(pair_freq_mcap, key=lambda k: (pair_freq_mcap[k], k))
     
-    def update_helper(self, pair_freq_map, pair_set_map, old_tuple, new_tuple, new_tuple_key, to_be_pop_set):
-        hit_words = []
-        for word in pair_set_map[old_tuple]:
-            if new_tuple in word:
-                freq = self.word_freq_map[word]
-                pair_freq_map[new_tuple_key] += freq
-                pair_freq_map[old_tuple] -= freq
-                to_be_pop_set.append(word)
-                hit_words.append(word)
-        pair_set_map[new_tuple_key].update(hit_words)
-    
     def update_frequency(self, target_tuple: tuple, pair_freq_map: dict, pair_set_map: dict):
         # update vocab dict
         index = len(self.vocab)
-        self.vocab[index] = target_tuple[0] + target_tuple[1]
+        new_vocab = target_tuple[0] + target_tuple[1]
+        self.vocab[index] = new_vocab
         # print(f"add new vocab, tuple {target_tuple}, index {index}")
         
         # delete tuple from related maps
         del pair_freq_map[target_tuple]
+        related_words = copy.copy(pair_set_map[target_tuple])
         del pair_set_map[target_tuple]
         
-        # search in the whole pair map, update overlaped tuples
-        current_pair_keys = list(pair_freq_map.keys())
-        for old_tuple in current_pair_keys:
-            if old_tuple[0] != target_tuple[1] and old_tuple[1] != target_tuple[0]:
-                continue
-            to_be_pop_set = []
-            if old_tuple[1] == target_tuple[0]:
-                new_tuple = old_tuple[0] + target_tuple[0] + target_tuple[1]
-                new_tuple_key = (old_tuple[0], target_tuple[0] + target_tuple[1])
-                self.update_helper(pair_freq_map, pair_set_map, old_tuple, new_tuple, new_tuple_key, to_be_pop_set)
-            if old_tuple[0] == target_tuple[1]:
-                new_tuple = target_tuple[0] + target_tuple[1] + old_tuple[1]
-                new_tuple_key = (target_tuple[0] + target_tuple[1], old_tuple[1])
-                self.update_helper(pair_freq_map, pair_set_map, old_tuple, new_tuple, new_tuple_key, to_be_pop_set)
+        for word in related_words:
+            word_token_list = self.word_token_map[word]
+            influenced_indexes = []
+            influenced_old_tuples = []
+            new_generated_tuples = []
+            new_token_list = []
+            index = 0
+            while index < len(word_token_list) - 1:
+                if word_token_list[index] == target_tuple[0] and word_token_list[index+1] == target_tuple[1]:
+                    influenced_indexes.append(index)
+                    index += 2
+                else:
+                    index += 1
+            for i in range(len(word_token_list)):
+                if i in influenced_indexes:
+                    influenced_old_tuples.append((word_token_list[i], word_token_list[i+1]))
+                else:
+                    if i + 1 in influenced_indexes:
+                        influenced_old_tuples.append((word_token_list[i], word_token_list[i+1]))
+                    elif i - 1 in influenced_indexes and i + 1 < len(word_token_list):
+                        influenced_old_tuples.append((word_token_list[i], word_token_list[i+1]))
+                    
             
-            pair_set_map[old_tuple].difference_update(to_be_pop_set)
+            index = 0
+            while index < len(word_token_list):
+                if index in influenced_indexes:
+                    new_token_list.append(new_vocab)
+                    index += 2
+                else:
+                    new_token_list.append(word_token_list[index])
+                    index += 1
+            
+            # 替换整个 new_generated_tuples 生成部分
+            new_generated_tuples = []
+            for i in range(len(new_token_list) - 1):
+                new_generated_tuples.append((new_token_list[i], new_token_list[i + 1]))
+            # 然后只保留涉及 new_vocab 的那些（其余未变化的 pair 不需要 +freq）
+            new_generated_tuples = [
+                p for p in new_generated_tuples
+                if p[0] == new_vocab or p[1] == new_vocab
+]
+
+            
+            self.word_token_map[word] = new_token_list
+            for old_tuple in influenced_old_tuples:
+                if old_tuple in pair_freq_map:
+                    pair_freq_map[old_tuple] -= self.word_freq_map[word]
+                    pair_set_map[old_tuple].discard(word)
+            for new_tuple in new_generated_tuples:
+                pair_freq_map[new_tuple] += self.word_freq_map[word]
+                pair_set_map[new_tuple].add(word)
+                    
 
     
     def write_merge(self, output_file):
