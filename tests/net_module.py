@@ -114,6 +114,21 @@ class SoftMax(nn.Module):
         return result
 
 
+class Attention(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+        self.softmax_func = SoftMax()
+    
+    def forward(self, Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, mask=None):
+        score = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys") / (Q.shape[-1] ** 0.5)
+        if mask is not None:
+            mask_score = torch.zeros_like(score).masked_fill(~mask, float('-inf'))
+            score = score + mask_score
+        softmax_score = self.softmax_func(score, -1)
+
+        result = einsum(softmax_score, V, "... queries keys, ...  keys d_v -> ... queries d_v")
+        return result
 
 if __name__ == "__main__":
     import torch
