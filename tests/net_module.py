@@ -98,11 +98,26 @@ class RoPE(nn.Module):
         odd_res = rearrange(torch.stack([ -1.0 * sin_vector * odd, cos_vector * odd], dim = -1), "... h w -> ... (h w)")
         result = even_res + odd_res
         return result
+    
+
+class SoftMax(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x: torch.Tensor, dim: int):
+        max_v = torch.max(x, dim=dim, keepdim=True).values
+        v = x - max_v  # automatically broadcasted
+        exp_v = torch.exp(v)
+        exp_v_sum = torch.sum(exp_v, dim=dim, keepdim=True)
+        result = exp_v / exp_v_sum
+        return result
+
+
 
 if __name__ == "__main__":
     import torch
-    max_seq_len = 4
-    d_k = 6
-    device='cpu'
-    theta = 10000
+    x = torch.tensor([1.0, 2.0])
+    soft_func = SoftMax()
+    print(soft_func(x, 0))
 
