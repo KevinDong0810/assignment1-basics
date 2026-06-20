@@ -27,6 +27,7 @@ class BPETokenizer(object):
             self._merges_dict[bytes_tuple] = index
         self._merge_list_length = len(merges)
         self._encode_cache = {}
+        self._temp = 0
 
 
     def _pre_tokenizer(self, text: str):
@@ -35,9 +36,11 @@ class BPETokenizer(object):
             split_texts = re.split(split_pattern, text)
         else:
             split_texts = [text]
+        # print(f"split text: {split_texts}")
         PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         for text in split_texts:
             if text in self.special_tokens:
+                # print(f"special text {text}")
                 yield text
             else:
                 match_iter = re.finditer(PAT, text)
@@ -47,10 +50,14 @@ class BPETokenizer(object):
 
     def encode_iterable(self, iterable):
         for text in iterable:
+            # print(f"text: {text}")
             for split_token in self._pre_tokenizer(text):
-                result = self.encode_word(split_token)
-                for token_id in result:
-                    yield token_id
+                if split_token in self.special_tokens:
+                    yield self._encode_vocab[split_token.encode("utf-8")]
+                else:
+                    result = self.encode_word(split_token)
+                    for token_id in result:
+                        yield token_id
 
     def encode(self, text: str):
         result = []
@@ -209,19 +216,19 @@ if __name__ == "__main__":
     MERGES_PATH = FIXTURES_PATH / "gpt2_merges.txt"
 
     tokenizer = BPETokenizer(None, None)
-    tokenizer.from_file(VOCAB_PATH, MERGES_PATH)
-    # tokenizer.encode_word(' sense')
-    
-    reference_tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer.from_file(VOCAB_PATH, MERGES_PATH, special_tokens=["<|endoftext|>"])
 
-    corpus_path = FIXTURES_PATH / "address.txt"
+    corpus_path = FIXTURES_PATH / "tinystories_sample.txt"
     with open(corpus_path) as f:
         corpus_contents = f.read()
-    reference_ids = reference_tokenizer.encode(corpus_contents)
-    ids = tokenizer.encode(corpus_contents)
+    reference_tokenizer = tiktoken.get_encoding("gpt2")
+    reference_ids = reference_tokenizer.encode(corpus_contents, allowed_special={"<|endoftext|>"})
+    all_ids = []
+    with open(FIXTURES_PATH / "tinystories_sample.txt") as f:
+        for _id in tokenizer.encode_iterable(f):
+            all_ids.append(_id)
+    assert all_ids == reference_ids
 
-    assert ids == reference_ids
-
-    assert tokenizer.decode(ids) == corpus_contents
+    assert tokenizer.decode(all_ids) == corpus_contents
     assert reference_tokenizer.decode(reference_ids) == corpus_contents
     
