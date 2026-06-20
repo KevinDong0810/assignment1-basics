@@ -70,7 +70,39 @@ class SwiGLU(nn.Module):
         return output
 
 
+class RoPE(nn.Module):
+
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
+        super().__init__()
+
+        self.d_k = d_k
+        position_array = torch.arange(max_seq_len, device=device)
+        dimension_array = torch.pow(torch.tensor(theta), -2.0 / d_k * torch.arange(d_k // 2, device=device))
+        indices = torch.outer(position_array, dimension_array)
+
+        cos_mat = torch.cos(indices)
+        sin_mat = torch.sin(indices)
+
+        self.register_buffer("cos_mat", cos_mat, persistent=False)
+        self.register_buffer("sin_mat", sin_mat, persistent=False)
+    
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor):
+        cos_vector = self.cos_mat[token_positions]  # [..., d_k // 2]
+        sin_vector = self.sin_mat[token_positions]  # [..., d_k // 2]
+
+        temp = rearrange(x, "... (h w) -> ... h w", w = 2)
+        even = temp[..., 0]
+        odd = temp[..., 1]
+
+        even_res = rearrange(torch.stack([cos_vector * even, sin_vector * even], dim = -1), "... h w -> ... (h w)")
+        odd_res = rearrange(torch.stack([ -1.0 * sin_vector * odd, cos_vector * odd], dim = -1), "... h w -> ... (h w)")
+        result = even_res + odd_res
+        return result
+
 if __name__ == "__main__":
-    module = RMSNorm(2)
-    token_ids = torch.tensor(np.array([1.0, 2.0]), dtype=torch.float32)
-    print(module(token_ids))
+    import torch
+    max_seq_len = 4
+    d_k = 6
+    device='cpu'
+    theta = 10000
+
