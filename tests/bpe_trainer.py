@@ -60,17 +60,13 @@ def worker(args):
     with open(input_path, "rb") as f:
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
-        split_pattern = "|".join([re.escape(token) for token in  ["<|endoftext|>"]  ])
-        split_texts = re.split(split_pattern, chunk)
 
         word_freq_map = defaultdict(int)
         PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-        for text in split_texts:
-            match_iter = re.finditer(PAT, text)
-            for word in match_iter:
-                word_s = word.group()
-                byte_tuple = tuple(bytes([b]) for b in word_s.encode("utf-8"))
-                word_freq_map[byte_tuple] += 1
+        for word in re.finditer(PAT, chunk):
+            word_s = word.group()
+            byte_tuple = tuple(bytes([b]) for b in word_s.encode("utf-8"))
+            word_freq_map[byte_tuple] += 1
     return word_freq_map
 
 
@@ -98,19 +94,45 @@ class BPETrainer(object):
         self.heap = []
 
     def create_word_list_mp(self, input_path: str | os.PathLike):
-        num_processes = 6
+        num_processes = 12
+        token = b"<|endoftext|>"
+        mini_chunk = 4096
+
+        print(f"[pretokenize] scanning file for all segment boundaries...", flush=True)
+        boundaries = [0]
         with open(input_path, "rb") as f:
-            boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
-        
-        with Pool(processes=num_processes) as pool:
-            pool_args = [(input_path, start, end) for start, end in zip(boundaries[:-1], boundaries[1:])]
-            results = pool.map(worker, pool_args)
-        
+            pos = 0
+            while True:
+                buf = f.read(mini_chunk)
+                if not buf:
+                    break
+                idx = 0
+                while True:
+                    found = buf.find(token, idx)
+                    if found == -1:
+                        break
+                    boundaries.append(pos + found + len(token))
+                    idx = found + len(token)
+                pos += len(buf)
+            boundaries.append(pos)
+        boundaries = sorted(set(boundaries))
+
+        num_chunks = len(boundaries) - 1
+        pool_args = [(input_path, start, end) for start, end in zip(boundaries[:-1], boundaries[1:])]
         result_map = {}
-        for result in results:
-            result_map.update(result)
+        print(f"[pretokenize] found {num_chunks} segments, processing with {num_processes} workers...", flush=True)
+        with Pool(processes=num_processes) as pool:
+            for i, result in enumerate(pool.imap_unordered(worker, pool_args), 1):
+                if i % 100 == 0 or i == num_chunks:
+                    print(f"\r[pretokenize] segments done: {i}/{num_chunks}", end="", flush=True)
+                for k, v in result.items():
+                    result_map[k] = result_map.get(k, 0) + v
+        print(flush=True)
+
+        print("[pretokenize] sorting word list...", flush=True)
         sorted_word_list = [(word, freq) for word, freq in result_map.items()]
-        self.sorted_word_list = sorted(sorted_word_list, key = lambda x : x[1])        
+        self.sorted_word_list = sorted(sorted_word_list, key = lambda x : x[1])
+        print(f"[pretokenize] done. unique words: {len(self.sorted_word_list)}", flush=True)        
 
     def create_word_list(self, input_path: str | os.PathLike):
         # split on special tokens
@@ -135,14 +157,17 @@ class BPETrainer(object):
         self.stats = defaultdict(int)  # 记录每个二元组合的频率
         self.indices = defaultdict(lambda: defaultdict(int))  # pair, index of word, pair freq in this word
 
+        print(f"[pair stats] counting pairs across {len(sorted_word_list)} words...", flush=True)
         for j, (word, word_freq) in enumerate(sorted_word_list):
             for i in range(len(word) - 1):
                 pair = tuple(word[i:i + 2])
                 self.stats[pair] += word_freq
                 self.indices[pair][j] += 1
 
+        print(f"[pair stats] building heap from {len(self.stats)} unique pairs...", flush=True)
         self.heap = [(-freq, ReverseBytes(pair)) for pair, freq in self.stats.items()]
         heapq.heapify(self.heap)
+        print("[pair stats] done.", flush=True)
     
     def replace_pair(self, pair: tuple):
         """ 根据输入pair找到所有受影响的其余pair """
@@ -305,7 +330,7 @@ if __name__ == "__main__":
     import sys
     import json
     input_path = sys.argv[1]
-    vocab_size = 10000
+    vocab_size = 32000
     special_tokens = ["<|endoftext|>"]
 
     trainer = BPETrainer(vocab_size, special_tokens)
