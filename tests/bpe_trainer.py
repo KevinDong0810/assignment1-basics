@@ -1,5 +1,7 @@
 import regex as re
 import os
+import gc
+import pickle
 from collections import defaultdict
 import json
 import copy
@@ -270,10 +272,19 @@ class BPETrainer(object):
         mem_before = process.memory_info().rss
         t_start = time.time()
 
-        if is_mp:
-            self.create_word_list_mp(input_path)
+        checkpoint_path = str(input_path) + ".wordlist.pkl"
+        if os.path.exists(checkpoint_path):
+            print(f"[checkpoint] loading word list from {checkpoint_path}", flush=True)
+            with open(checkpoint_path, "rb") as f:
+                self.sorted_word_list = pickle.load(f)
         else:
-            self.create_word_list(input_path)
+            if is_mp:
+                self.create_word_list_mp(input_path)
+            else:
+                self.create_word_list(input_path)
+            with open(checkpoint_path, "wb") as f:
+                pickle.dump(self.sorted_word_list, f)
+            print(f"[checkpoint] word list saved to {checkpoint_path}", flush=True)
         self.create_pair_stats(self.sorted_word_list)
 
         self.merge_list = []
@@ -287,9 +298,11 @@ class BPETrainer(object):
 
             done = len(self.merge_list)
             if done % 100 == 0 or done == total_merges:
+                gc.collect()
                 elapsed_loop = time.time() - t_loop_start
                 eta = elapsed_loop / done * (total_merges - done)
-                print(f"\r[{done}/{total_merges}] ETA: {eta:.0f}s", end="", flush=True)
+                mem_mb = process.memory_info().rss / 1024 / 1024
+                print(f"\r[{done}/{total_merges}] ETA: {eta:.0f}s | mem: {mem_mb:.0f} MB", end="", flush=True)
         print()
 
         elapsed = time.time() - t_start

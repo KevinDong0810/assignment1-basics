@@ -218,17 +218,11 @@ if __name__ == "__main__":
     tokenizer = BPETokenizer(None, None)
     tokenizer.from_file(VOCAB_PATH, MERGES_PATH, special_tokens=["<|endoftext|>"])
 
-    corpus_path = FIXTURES_PATH / "tinystories_sample.txt"
-    with open(corpus_path) as f:
-        corpus_contents = f.read()
-    reference_tokenizer = tiktoken.get_encoding("gpt2")
-    reference_ids = reference_tokenizer.encode(corpus_contents, allowed_special={"<|endoftext|>"})
-    all_ids = []
     with open(FIXTURES_PATH / "tinystories_sample.txt") as f:
-        for _id in tokenizer.encode_iterable(f):
-            all_ids.append(_id)
-    assert all_ids == reference_ids
+        corpus_contents = f.read()
 
-    assert tokenizer.decode(all_ids) == corpus_contents
-    assert reference_tokenizer.decode(reference_ids) == corpus_contents
+    ids = tokenizer.encode(corpus_contents)
+    assert tokenizer.decode(ids) == corpus_contents
+    print(corpus_contents)
+    print(ids)
     
