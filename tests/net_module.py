@@ -129,6 +129,52 @@ class Attention(nn.Module):
 
         result = einsum(softmax_score, V, "... queries keys, ...  keys d_v -> ... queries d_v")
         return result
+    
+
+class MultiHeadAttention(nn.Module):
+
+    def __init__(self, d_model: int, num_heads: int, device=None):
+        super().__init__()
+        atten_matrices = torch.zeros((3, d_model, d_model), device=device)
+        out_mat = torch.zeros((d_model, d_model), device=device)
+        std = np.sqrt(1.0 / d_model)
+        nn.init.trunc_normal_(atten_matrices, mean=0.0, std=std, a = -3 * std, b = 3 * std)
+        nn.init.trunc_normal_(out_mat, mean=0.0, std=std, a = -3 * std, b = 3 * std)
+        self.atten_matrices = nn.Parameter(atten_matrices)
+        self.out_mat = nn.Parameter(out_mat)
+
+        self.d_model = d_model
+        self.h = num_heads
+        self.d_k = d_model // num_heads
+        assert d_model == self.h * self.d_k
+        self.atten_func = Attention()
+        self.rope = None
+
+    def build_rope(self, max_seq_len: int, theta: float):
+        self.rope = RoPE(theta, self.d_k, max_seq_len)
+
+    def forward(self, x: torch.Tensor, token_positions=None):
+        # x: [..., seq_len, d_model]
+        seq_len = x.size()[-2]
+        mask = ~torch.triu(torch.ones(seq_len, seq_len).to(dtype=torch.bool), diagonal=1)
+
+        atten_matrices_proc = rearrange(self.atten_matrices, "num (h d_k) d_model -> num h d_k d_model", h = self.h)
+        result_matrices = einsum(x, atten_matrices_proc, "... seq_len d_model, num h d_k d_model -> ... num h seq_len d_k")
+        q = result_matrices[..., 0, :, :, :]  # result dim: [..., head seq_len d_k]
+        k = result_matrices[..., 1, :, :, :]
+        v = result_matrices[..., 2, :, :, :]
+
+        if self.rope is not None and token_positions is not None:
+            q = self.rope(q, token_positions)
+            k = self.rope(k, token_positions)
+
+        atten_result = self.atten_func(q, k, v, mask)
+
+        stacked_result = rearrange(atten_result, "... h seq_len d_k -> ... seq_len (h d_k)")
+        projected_result = einsum(stacked_result, self.out_mat, "... d_model, d_model_2 d_model -> ... d_model_2")
+
+        return projected_result
+
 
 if __name__ == "__main__":
     import torch
