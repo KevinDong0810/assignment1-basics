@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from torch import nn
 import numpy as np
@@ -217,6 +219,47 @@ class TransformerBlock(nn.Module):
             'gain': weights['ln2.weight']
         })       
 
+
+class TransformerLM(nn.Module):
+
+    def __init__(self, vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta) -> None:
+        super().__init__()
+
+        self.emb = Embedding(vocab_size, d_model)
+        self.transformer_layers = []
+        for _ in range(num_layers):
+            transformer_block = TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta)
+            self.transformer_layers.append(transformer_block)
+        self.rms_norm = RMSNorm(d_model)
+        self.output_proj = Linear(d_model, vocab_size)
+        self.softmax = SoftMax()
+
+    def forward(self, x:torch.Tensor):
+        res = self.emb(x)
+        for layer in self.transformer_layers:
+           res = layer(res)
+        output = self.output_proj(self.rms_norm(res))
+
+        return output
+
+    def load_weights(self, weights):
+        self.emb.load_state_dict({"weight": weights['token_embeddings.weight']})
+        self.rms_norm.load_state_dict({"gain": weights['ln_final.weight']})
+        self.output_proj.load_state_dict({"weight": weights['lm_head.weight']})
+        
+        for i in range(len(self.transformer_layers)):
+            input_weights = {
+                "attn.q_proj.weight": weights[f"layers.{i}.attn.q_proj.weight"],
+                "attn.k_proj.weight": weights[f"layers.{i}.attn.k_proj.weight"],
+                "attn.v_proj.weight": weights[f"layers.{i}.attn.v_proj.weight"],
+                "attn.output_proj.weight": weights[f"layers.{i}.attn.output_proj.weight"],
+                "ln1.weight": weights[f"layers.{i}.ln1.weight"],
+                "ln2.weight": weights[f"layers.{i}.ln2.weight"],
+                "ffn.w1.weight": weights[f"layers.{i}.ffn.w1.weight"],
+                "ffn.w2.weight": weights[f"layers.{i}.ffn.w2.weight"],
+                "ffn.w3.weight": weights[f"layers.{i}.ffn.w3.weight"],
+            }
+            self.transformer_layers[i].load_weights(input_weights)
 
 if __name__ == "__main__":
     import torch
