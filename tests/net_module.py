@@ -174,6 +174,48 @@ class MultiHeadAttention(nn.Module):
         projected_result = einsum(stacked_result, self.out_mat, "... d_model, d_model_2 d_model -> ... d_model_2")
 
         return projected_result
+    
+
+class TransformerBlock(nn.Module):
+
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, max_seq_len, theta, device=None):
+        super().__init__()
+        self.rmsnorm1 = RMSNorm(d_model=d_model, device=device)
+        self.rmsnorm2 = RMSNorm(d_model=d_model, device=device)
+        self.mha = MultiHeadAttention(d_model=d_model, num_heads=num_heads, device=device)
+        self.mha.build_rope(max_seq_len, theta)
+
+        self.swiglu = SwiGLU(d_model=d_model, d_ff=d_ff, device=device)
+    
+    def forward(self, x: torch.Tensor):
+        token_positions = torch.arange(x.shape[-2])
+        mha_output = self.mha(self.rmsnorm1(x), token_positions) + x
+        output = self.swiglu(self.rmsnorm2(mha_output)) + mha_output
+        return output
+    
+    def load_weights(self, weights: dict):
+        atten_matrics = torch.stack([
+            weights['attn.q_proj.weight'], 
+            weights['attn.k_proj.weight'],
+            weights['attn.v_proj.weight']], dim=0)
+        self.mha.load_state_dict({
+            "atten_matrices": atten_matrics,
+            "out_mat": weights['attn.output_proj.weight']
+        })
+
+        self.rmsnorm1.load_state_dict({
+            'gain': weights['ln1.weight']
+        })
+
+        self.swiglu.load_state_dict({
+            "w1": weights['ffn.w1.weight'],
+            "w2": weights['ffn.w2.weight'],
+            "w3": weights['ffn.w3.weight']
+        })
+
+        self.rmsnorm2.load_state_dict({
+            'gain': weights['ln2.weight']
+        })       
 
 
 if __name__ == "__main__":

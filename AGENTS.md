@@ -24,7 +24,6 @@ CS336 is intentionally implementation-heavy. Students are expected to write subs
 * Give solutions to any problems.
 * Complete TODO sections in assignment code.
 * Edit code in the student repo
-* Run bash commands
 * Refactor large portions of student code into a finished solution.
 * Convert assignment requirements directly into working code.
 * Implement core assignment components for students, such as tokenizers, transformer blocks, optimizers, training loops, Triton kernels, distributed training logic, scaling-law pipelines, data filtering/deduplication pipelines, or alignment/RL methods.
