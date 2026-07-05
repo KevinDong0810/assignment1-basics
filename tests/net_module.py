@@ -226,13 +226,21 @@ class TransformerLM(nn.Module):
         super().__init__()
 
         self.emb = Embedding(vocab_size, d_model)
-        self.transformer_layers = []
+        self.transformer_layers = nn.ModuleList()
         for _ in range(num_layers):
             transformer_block = TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta)
             self.transformer_layers.append(transformer_block)
         self.rms_norm = RMSNorm(d_model)
         self.output_proj = Linear(d_model, vocab_size)
         self.softmax = SoftMax()
+
+        self.vocab_size = vocab_size
+        self.context_length = context_length
+        self.d_model = d_model
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.d_ff = d_ff
+    
 
     def forward(self, x:torch.Tensor):
         res = self.emb(x)
@@ -260,10 +268,79 @@ class TransformerLM(nn.Module):
                 "ffn.w3.weight": weights[f"layers.{i}.ffn.w3.weight"],
             }
             self.transformer_layers[i].load_weights(input_weights)
+    
+    def stats_calculate(self):
+        embed_param = self.vocab_size * self.d_model
+
+        # for each transformer block
+        # we have two norm
+        norm_param = 2 * self.d_model
+        # rope dose not have trainable params
+        QKV_matrix_params = 3 * self.d_model * self.d_model
+        out_matrix_param = self.d_model * self.d_model
+        mha_block_param = norm_param + QKV_matrix_params + out_matrix_param
+        swiglu_param = 3 * self.d_ff * self.d_model
+        transformer_param_sum = mha_block_param + swiglu_param
+
+        aux_param = self.d_model + self.d_model * self.vocab_size
+
+        total_sum = embed_param + self.num_layers * transformer_param_sum + aux_param
+
+        print(f"transformer params num: {transformer_param_sum}")
+        print(f"total param sum : {total_sum}")
+
+        memory = total_sum * 4 / 1024 / 1024 / 1024 # GiB
+        print(f"require memory {memory} GiB")
+
+    def flops_calculate(self):
+        # embed 是table lookup, 因此不算矩阵计算
+
+        # 计算每个transformer block内部的block
+        # 首先计算MHA
+        QKV_projection = 6 * self.context_length * self.d_model * self.d_model  # 得到Q, K, V矩阵的计算
+        QKV_multi = 4 * self.context_length * self.context_length * self.d_model  # Q, K, V矩阵相乘，得到最终的输出
+        mha_proj = 2 * self.context_length * self.d_model * self.d_model  # mha里面的projection
+        mha_total_flops = QKV_projection + QKV_multi + mha_proj
+        swiglu_flops = 6 * self.context_length * self.d_model * self.d_ff
+        transformer_block_flops = mha_total_flops + swiglu_flops
+
+        outproj_flops = 2 * self.context_length * self.d_model * self.vocab_size
+
+        total_flops = self.num_layers * transformer_block_flops + outproj_flops
+
+        # print(f"mha flops : {mha_total_flops / 1e12} TFLOPs")
+        # print(f"swiglu flops: {swiglu_flops / 1e12} TFLOPs")
+        #print(f"transformer block total flops: {transformer_block_flops / 1e12} TFLOPs")
+
+        QKV_proj_ratio = self.num_heads * QKV_projection / total_flops
+        print(f"total flops: {total_flops / 1e12} TFLOPs QKV proj ratio: {QKV_proj_ratio:.2f}")
+        return total_flops, QKV_proj_ratio
+
+    def param_helper(self, generator):
+        total = 0
+        for name, param in generator:
+            count = param.numel()
+            total += count
+            print(f"{name}: shape={tuple(param.shape)}, numel={count}")
+        print(f"counted total: {total}")
+
 
 if __name__ == "__main__":
-    import torch
-    x = torch.tensor([1.0, 2.0])
-    soft_func = SoftMax()
-    print(soft_func(x, 0))
+    vocab_size = 50257
+    context_length = 1024
+    num_layers = 48
+    d_model = 1600
+    num_heads = 25
+    d_ff = 4288
 
+    small_lm = TransformerLM(vocab_size, context_length, 768, 12, 12, d_ff, 1000)
+    small_lm.flops_calculate()
+
+    medium_lm = TransformerLM(vocab_size, context_length, 1024, 24, 16, d_ff, 1000)
+    medium_lm.flops_calculate()
+
+    large_lm = TransformerLM(vocab_size, context_length, 1280, 36, 20, d_ff, 1000)
+    large_lm.flops_calculate()
+
+    xl_lm = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, 1000)
+    xl_lm.flops_calculate()
