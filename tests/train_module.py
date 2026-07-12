@@ -5,6 +5,9 @@ from typing import Any
 import torch
 from torch import nn
 import numpy as np
+import math
+from collections.abc import Callable, Iterable
+from typing import Optional
 import torch.nn.functional as F
 
 class CrossEntropyLoss(nn.Module):
@@ -25,6 +28,48 @@ class CrossEntropyLoss(nn.Module):
         avg_loss = torch.mean(loss)
         return avg_loss
 
+
+class AdamW(torch.optim.Optimizer):
+
+    def __init__(self, params, lr=1e-3, weight_decay=0.01, betas=(0.9, 0.999), eps=1e-8):
+        defaults = {
+            "lr": lr,
+            "weight_decay": weight_decay,
+            "betas": betas,
+            "eps": eps
+        }
+        super().__init__(params, defaults)
+    
+    def step(self, closure = None):
+        loss = None if closure is None else closure()
+        for group in self.param_groups:
+            beta1 = group["betas"][0]
+            beta2 = group["betas"][1]
+            lr = group["lr"]
+            weight_decay = group["weight_decay"]
+            eps = group["eps"]
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                state = self.state[p]
+                grad = p.grad.data
+                t = state.get("t", 1)
+                lrt = lr * math.sqrt(1 - beta2**t) / (1 - beta1**t)
+                p.data -= lr * weight_decay * p.data
+
+                m = state.get("m", 0)
+                v = state.get("v", 0)
+                m = beta1 * m + (1 - beta1) * grad
+                v = beta2 * v + (1 - beta2) * grad**2
+                p.data -= lrt * m / (torch.sqrt(v) + eps)
+
+                state["m"] = m
+                state["v"] = v
+                state["t"] = t + 1
+        
+        return loss
+                
 
 def test_cross_entropy_loss():
     logits = torch.tensor([
