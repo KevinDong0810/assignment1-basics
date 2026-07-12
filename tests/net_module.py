@@ -286,11 +286,39 @@ class TransformerLM(nn.Module):
 
         total_sum = embed_param + self.num_layers * transformer_param_sum + aux_param
 
-        print(f"transformer params num: {transformer_param_sum}")
-        print(f"total param sum : {total_sum}")
+        #print(f"transformer params num: {transformer_param_sum}")
+        #print(f"total param sum : {total_sum}")
 
         memory = total_sum * 4 / 1024 / 1024 / 1024 # GiB
         print(f"require memory {memory} GiB")
+
+        return total_sum, memory
+    
+    def activation_calculate(self, batch_size: int):
+        # for each block mha
+        rmsnorm_out = 2 * batch_size * self.context_length * self.d_model
+        QKV_mat = 3 * batch_size * self.context_length * self.d_model
+        qk_value = batch_size * self.num_heads * self.context_length * self.context_length
+        softmax_values = batch_size * self.num_heads * self.context_length * self.context_length
+        weighted_values = batch_size * self.context_length * self.d_model
+        outmat = batch_size * self.context_length * self.d_model
+        mha_activation = 7 * batch_size * self.context_length * self.d_model + 2 * batch_size * self.num_heads * self.context_length * self.context_length
+
+        # for each swiglu
+        swiglu_weight = 5 * batch_size * self.context_length * self.d_ff
+        
+        transformer_block_params = self.num_layers * (mha_activation + swiglu_weight)
+
+        # final output
+        final_rms = batch_size * self.context_length * self.d_model
+        outemb = batch_size * self.context_length * self.vocab_size
+        cross_entropy = 1 
+
+        final_act = transformer_block_params + final_rms + outemb + cross_entropy
+        return final_act, final_act * 4 / 1024 / 1024 / 1024
+
+    def optimizer_states(self, param_num):
+        return param_num * 3, param_num * 3 * 4 / 1024 / 1024 / 1024
 
     def flops_calculate(self):
         # embed 是table lookup, 因此不算矩阵计算
@@ -315,6 +343,13 @@ class TransformerLM(nn.Module):
         QKV_proj_ratio = self.num_heads * QKV_projection / total_flops
         print(f"total flops: {total_flops / 1e12} TFLOPs QKV proj ratio: {QKV_proj_ratio:.2f}")
         return total_flops, QKV_proj_ratio
+    
+    def train_step_flops(self, batch_size):
+        forward_pass = self.flops_calculate()[0] * batch_size
+        backward_pass = 2 * forward_pass
+        adamw_step = 15 * self.stats_calculate()[0]
+
+        return forward_pass + backward_pass + adamw_step
 
     def param_helper(self, generator):
         total = 0
@@ -325,7 +360,7 @@ class TransformerLM(nn.Module):
         print(f"counted total: {total}")
 
 
-if __name__ == "__main__":
+def gpt2_xl_memory_cal(batch_size):
     vocab_size = 50257
     context_length = 1024
     num_layers = 48
@@ -333,14 +368,32 @@ if __name__ == "__main__":
     num_heads = 25
     d_ff = 4288
 
-    small_lm = TransformerLM(vocab_size, context_length, 768, 12, 12, d_ff, 1000)
-    small_lm.flops_calculate()
+    xl_lm = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, 1000)
 
-    medium_lm = TransformerLM(vocab_size, context_length, 1024, 24, 16, d_ff, 1000)
-    medium_lm.flops_calculate()
+    param, param_memory = xl_lm.stats_calculate()
+    activ, activ_memory = xl_lm.activation_calculate(batch_size)
+    optim, optim_memory = xl_lm.optimizer_states(param)
 
-    large_lm = TransformerLM(vocab_size, context_length, 1280, 36, 20, d_ff, 1000)
-    large_lm.flops_calculate()
+    total_memory = param_memory + activ_memory + optim_memory
+    print(f"param memory {param_memory:.2f}, activation memory {activ_memory:.2f}, optimizer memory {optim_memory:.2f}")
+    print(f"total memory {total_memory:.2f}")
+
+def gpt2_training_hours(batch_size, steps):
+
+    vocab_size = 50257
+    context_length = 1024
+    num_layers = 48
+    d_model = 1600
+    num_heads = 25
+    d_ff = 4288
 
     xl_lm = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, 1000)
-    xl_lm.flops_calculate()
+
+    computation_power = 4.95e14 * 0.5 * 3600
+    required_computation = xl_lm.train_step_flops(batch_size) * steps
+    hours = required_computation / computation_power
+    print(f"required {hours:.2f}")
+
+
+if __name__ == "__main__":
+    gpt2_training_hours(1024, 400000)

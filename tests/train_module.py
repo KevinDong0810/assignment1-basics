@@ -71,6 +71,17 @@ class AdamW(torch.optim.Optimizer):
         return loss
                 
 
+def lr_cosine_func(it, max_lr, min_lr, warm_it, cos_it):
+    if it < warm_it:
+        return it / warm_it * max_lr
+    elif it < cos_it:
+        angle = (it - warm_it) / (cos_it - warm_it) * math.pi
+        delta = 0.5 * (1 + math.cos(angle)) * (max_lr - min_lr)
+        return min_lr + delta
+    else:
+        return min_lr
+
+
 def test_cross_entropy_loss():
     logits = torch.tensor([
         [2.0, 1.0, 0.1],
