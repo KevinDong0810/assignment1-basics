@@ -82,6 +82,23 @@ def lr_cosine_func(it, max_lr, min_lr, warm_it, cos_it):
         return min_lr
 
 
+def gradient_clipping(params, max_norm):
+    total_norm = 0.0
+    for param in params:
+        if param.grad is not None:
+            total_norm += torch.linalg.vector_norm(param.grad)**2
+    
+    total_norm = math.sqrt(total_norm)
+    if total_norm > max_norm:
+        scale = max_norm / (total_norm + 1e-6)
+        for param in params:
+            if param.grad is not None:
+                param.grad.mul_(scale)
+            
+
+        
+
+
 def test_cross_entropy_loss():
     logits = torch.tensor([
         [2.0, 1.0, 0.1],
