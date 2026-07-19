@@ -9,6 +9,7 @@ import math
 from collections.abc import Callable, Iterable
 from typing import Optional
 import torch.nn.functional as F
+import numpy.typing as npt
 
 class CrossEntropyLoss(nn.Module):
 
@@ -94,10 +95,24 @@ def gradient_clipping(params, max_norm):
         for param in params:
             if param.grad is not None:
                 param.grad.mul_(scale)
-            
 
-        
 
+def sample_from_dataset(dataset: npt.NDArray, batch_size: int, context_length: int, device: str):
+    data_length = len(dataset)
+
+    rng = np.random.default_rng()
+    start_index = rng.integers(0, data_length - context_length - 1, batch_size, endpoint=True)
+    result_array = []
+    target_array = []
+    for index in start_index:
+        tmp = dataset[index:index + context_length]
+        target = dataset[index + 1 : index + context_length + 1]
+        result_array.append(tmp)
+        target_array.append(target)
+    result_array = np.stack(result_array, axis=0)
+    target_array = np.stack(target_array, axis=0)
+
+    return torch.from_numpy(result_array).to(device), torch.from_numpy(target_array).to(device)
 
 def test_cross_entropy_loss():
     logits = torch.tensor([
