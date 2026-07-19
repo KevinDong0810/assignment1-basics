@@ -130,5 +130,19 @@ def test_cross_entropy_loss():
     print(f"close match: {torch.allclose(actual, expected, atol=1e-6)}")
 
 
+def save_checkpoint(model, optimizer, iteration, out):
+    result_list = []
+    result_list.append(model.state_dict())
+    result_list.append(optimizer.state_dict())
+    result_list.append(iteration)
+    torch.save(result_list, out)
+
+def load_checkpoint(src, model, optimizer):
+    result_list = torch.load(src)
+    model.load_state_dict(result_list[0])
+    optimizer.load_state_dict(result_list[1])
+    return result_list[2]
+
+
 if __name__ == "__main__":
     test_cross_entropy_loss()
