@@ -151,6 +151,7 @@ class MultiHeadAttention(nn.Module):
         assert d_model == self.h * self.d_k
         self.atten_func = Attention()
         self.rope = None
+        self.device = device
 
     def build_rope(self, max_seq_len: int, theta: float):
         self.rope = RoPE(theta, self.d_k, max_seq_len)
@@ -158,7 +159,7 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x: torch.Tensor, token_positions=None):
         # x: [..., seq_len, d_model]
         seq_len = x.size()[-2]
-        mask = ~torch.triu(torch.ones(seq_len, seq_len).to(dtype=torch.bool), diagonal=1)
+        mask = ~torch.triu(torch.ones(seq_len, seq_len).to(device=x.device,dtype=torch.bool), diagonal=1)
 
         atten_matrices_proc = rearrange(self.atten_matrices, "num (h d_k) d_model -> num h d_k d_model", h = self.h)
         result_matrices = einsum(x, atten_matrices_proc, "... seq_len d_model, num h d_k d_model -> ... num h seq_len d_k")
@@ -190,7 +191,7 @@ class TransformerBlock(nn.Module):
         self.swiglu = SwiGLU(d_model=d_model, d_ff=d_ff, device=device)
     
     def forward(self, x: torch.Tensor):
-        token_positions = torch.arange(x.shape[-2])
+        token_positions = torch.arange(x.shape[-2]).to(device=x.device)
         mha_output = self.mha(self.rmsnorm1(x), token_positions) + x
         output = self.swiglu(self.rmsnorm2(mha_output)) + mha_output
         return output

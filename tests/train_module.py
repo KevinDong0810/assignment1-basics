@@ -96,7 +96,6 @@ def gradient_clipping(params, max_norm):
             if param.grad is not None:
                 param.grad.mul_(scale)
 
-
 def sample_from_dataset(dataset: npt.NDArray, batch_size: int, context_length: int, device: str):
     data_length = len(dataset)
 
@@ -112,8 +111,11 @@ def sample_from_dataset(dataset: npt.NDArray, batch_size: int, context_length: i
     result_array = np.stack(result_array, axis=0)
     target_array = np.stack(target_array, axis=0)
 
-    return torch.from_numpy(result_array).to(device), torch.from_numpy(target_array).to(device)
+    x = torch.from_numpy(result_array).to(device=device, dtype=torch.long)
+    y = torch.from_numpy(target_array).to(device=device, dtype=torch.long)
 
+    return x, y
+            
 def test_cross_entropy_loss():
     logits = torch.tensor([
         [2.0, 1.0, 0.1],

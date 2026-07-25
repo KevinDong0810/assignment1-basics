@@ -87,6 +87,18 @@ def train(model: network_utlis.TransformerLM, optimizer: train_utlis.AdamW, trai
         train_utlis.save_checkpoint(model, optimizer, step - 1, ckpt_path)
         print(f"save final model to path {ckpt_path}")
 
+
+def create_overfit_token_array(data_length, vocab_size, output_dir):
+    output_token = []
+    for i in range(data_length):
+        output_token.append(i % vocab_size)
+
+    train_path = os.path.join(output_dir, "test_train.npy")
+    test_path = os.path.join(output_dir, "test_val.npy")
+
+    np.save(train_path, output_token)
+    np.save(test_path, output_token)
+
 def main():
 
     parser = argparse.ArgumentParser(description="training llm model")
@@ -106,7 +118,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # create_overfit_token_array(9, 64, "fixtures")
     main()
-
 
 

@@ -28,7 +28,7 @@ class RuntimeConfig:
     log_interval: int = 10
     checkpoint_interval: int = 1000
     random_seed: int = -1
-    device: str = "cuda"
+    device: str = "cuda:0"
     checkpoint_path: str = "checkpoints/"
 
 @dataclass
