@@ -4,10 +4,13 @@ import net_module as network_utlis
 
 import os
 import torch
-import numpy as np
 import yaml
-
+import wandb
 import argparse
+
+import numpy as np
+
+from dataclasses import asdict
 
 def parse_config(path=None):
     default_config = config_utlis.TrainConfig()
@@ -23,7 +26,7 @@ def prepare(config: config_utlis.TrainConfig):
     # build model
     network = network_utlis.TransformerLM(
         config.model.vocab_size, config.model.context_length, config.model.d_model,
-        config.model.num_layers, config.model.num_heads, config.model.d_ff, config.model.theta)
+        config.model.num_layers, config.model.num_heads, config.model.d_ff, config.model.theta).to(config.runtime.device)
     
     optimizer = train_utlis.AdamW(network.parameters(), config.optimizer.lr, config.optimizer.weight_decay,
                                   (config.optimizer.beta1, config.optimizer.beta2), config.optimizer.eps)
@@ -40,43 +43,58 @@ def train(model: network_utlis.TransformerLM, optimizer: train_utlis.AdamW, trai
     if restore_path is not None:
         loaded_steps = train_utlis.load_checkpoint(restore_path, model, optimizer)
         start = loaded_steps + 1
-    
-    for step in range(start, config.runtime.max_steps):
-        x, y = train_utlis.sample_from_dataset(train_dataset, config.runtime.batch_size, config.model.context_length, device=config.runtime.device)
-        logits = model(x)
-        loss = loss_func(logits, y)
-        loss.backward()
-        optimizer.step()
 
-        if step % config.runtime.log_interval == 0:
-            print(f"step {step} train/loss, {loss}")
-        
-        if step % config.runtime.checkpoint_interval == 0:
-            ckpt_path = os.path.join(ckpt_dir, f"{step}.ckpt")
-            train_utlis.save_checkpoint(model, optimizer, step, ckpt_path)
-            print(f"save step {step} to path {ckpt_path}")
+    with wandb.init(project="cs336-assignment1", name=exp_name, config=asdict(config)) as run:
+        run.define_metric("global_step")
+        run.define_metric("train/*", step_metric="global_step")
+        run.define_metric("val/*", step_metric="global_step")
 
-        if step % config.runtime.eval_interval == 0:
-            with torch.no_grad():
-                x, y = train_utlis.sample_from_dataset(val_dataset, config.runtime.batch_size, config.model.context_length, device=config.runtime.device)
-                logits = model(x)
-                val_loss = loss_func(logits, y)
-                print(f"step {step} val/loss, {val_loss}")
-        
-        step += 1
+        for step in range(start, config.runtime.max_steps):
+            optimizer.zero_grad()
+            x, y = train_utlis.sample_from_dataset(train_dataset, config.runtime.batch_size, config.model.context_length, device=config.runtime.device)
+            logits = model(x)
+            loss = loss_func(logits, y)
+            loss.backward()
+            optimizer.step()
+            
+            if step % config.runtime.checkpoint_interval == 0:
+                ckpt_path = os.path.join(ckpt_dir, f"{step}.ckpt")
+                train_utlis.save_checkpoint(model, optimizer, step, ckpt_path)
+                print(f"save step {step} to path {ckpt_path}")
+
+            if step % config.runtime.eval_interval == 0:
+                with torch.no_grad():
+                    out_loss = []
+                    for _ in range(10):
+                        x, y = train_utlis.sample_from_dataset(val_dataset, config.runtime.batch_size, config.model.context_length, device=config.runtime.device)
+                        logits = model(x)
+                        val_loss = loss_func(logits, y)
+                        out_loss.append(val_loss.item())
+                    val_loss = np.mean(out_loss)
+                    print(f"step {step} val/loss, {val_loss}")
+
+            if step % config.runtime.log_interval == 0:
+                log_dict = {
+                    "global_step": step,
+                    "train/loss": loss.item()
+                }
+                if step % config.runtime.eval_interval == 0:
+                    log_dict["val/loss"] = val_loss
+                run.log(log_dict)
+            
+            step += 1
         ckpt_path = os.path.join(ckpt_dir, f"final.ckpt")
-        train_utlis.save_checkpoint(model, optimizer, step, ckpt_path)
+        train_utlis.save_checkpoint(model, optimizer, step - 1, ckpt_path)
         print(f"save final model to path {ckpt_path}")
-
 
 def main():
 
     parser = argparse.ArgumentParser(description="training llm model")
-    parser.add_argument("train_dataset_path", type="str", required=True)
-    parser.add_argument("val_dataset_path", type="str", required=True)
-    parser.add_argument("restore_path", type="str", default=None)
-    parser.add_argument("config_path", type="str", default=None)
-    parser.add_argument("exp_name", type="str", default="llm_test")
+    parser.add_argument("train_dataset_path", type=str)
+    parser.add_argument("val_dataset_path", type=str)
+    parser.add_argument("--restore_path", type=str, default=None)
+    parser.add_argument("--config_path", type=str, default=None)
+    parser.add_argument("--exp_name", type=str, default="llm_test")
     args = parser.parse_args()
 
     config = parse_config(args.config_path)
@@ -85,6 +103,10 @@ def main():
     train_dataset = np.load(args.train_dataset_path, mmap_mode="r")
     val_dataset = np.load(args.val_dataset_path, mmap_mode="r")
     train(network, optimizer, train_dataset, val_dataset, config, args.restore_path, args.exp_name)
+
+
+if __name__ == "__main__":
+    main()
 
 
 
