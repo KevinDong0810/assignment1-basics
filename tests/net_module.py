@@ -4,6 +4,7 @@ import torch
 from torch import nn
 import numpy as np
 from einops import rearrange, einsum, reduce
+from .bpe_tokenizer import BPETokenizer
 
 class Linear(nn.Module):
 
@@ -359,6 +360,54 @@ class TransformerLM(nn.Module):
             total += count
             print(f"{name}: shape={tuple(param.shape)}, numel={count}")
         print(f"counted total: {total}")
+
+class LLMDecoder(object):
+
+    def __init__(self, llm_module: TransformerLM, tokenizer: BPETokenizer):
+        self.llm_module = llm_module
+        self.tokenizer = tokenizer
+
+    def generate(self, input_str: str, maximum_length=-1, temperature=1, top_p=0.9):
+        # turn strings into ids
+        input_ids = self.tokenizer.encode(input_str)
+        if len(input_ids) > self.llm_module.context_length:
+            print(f"llm module context length {self.llm_module.context_length}, input token length {len(input_ids)}")
+            raise RuntimeError
+
+        current_last_id = input_ids[-1]
+        max_allowd_output_len = self.llm_module.context_length - len(input_ids)
+        max_len = min(maximum_length, max_allowd_output_len) if maximum_length > 0 else max_allowd_output_len
+        output_id = []
+        
+        while current_last_id != self.tokenizer.eof and len(output_id) < max_len:
+            input_tensor = torch.from_numpy(input_ids).to("cuda").unsqueeze(dim=0)
+            logits = self.llm_module(input_tensor)[0, -1, :] / temperature
+            prob = self.llm_module.softmax(logits, dim=-1) # [vocab_size]
+
+            candidates = []
+            candidates_prob = []
+            if top_p > 0.0 and top_p < 1.0:  # top-p sampling
+                sorted_index = torch.argsort(prob, dim=-1, descending=True)
+                accumulated_prob = 0.0
+                while accumulated_prob < top_p:
+                    index = sorted_index[len(candidates)]
+                    index_prob = prob[index]
+                    accumulated_prob += index_prob
+                    candidates.append(index)
+                    candidates_prob.append(index_prob)
+            else:
+                candidates_prob = prob
+                candidates = torch.arange(len(prob))
+
+            candidates_prob = torch.stack(candidates_prob, dim=0)
+            result_index = torch.multinomial(candidates_prob, num_samples=1)
+            result_id = candidates[result_index.item()].item()  # still a torch Tensor
+            output_id.append(result_id)
+            current_last_id = result_id
+            input_ids.append(result_id)
+
+        decoded_str = self.tokenizer.decode(input_ids)
+        return decoded_str
 
 
 def gpt2_xl_memory_cal(batch_size):

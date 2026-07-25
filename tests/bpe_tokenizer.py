@@ -9,6 +9,7 @@ class BPETokenizer(object):
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens=None):
         if vocab is not None and merges is not None:
             self.init(vocab, merges, special_tokens)
+        self.eof_id = -1
 
     def init(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens=None):
         if special_tokens:
@@ -16,6 +17,7 @@ class BPETokenizer(object):
                 byte_encoded_special_token = special_token.encode("utf-8")
                 if byte_encoded_special_token not in set(vocab.values()):
                     vocab[len(vocab)] = byte_encoded_special_token
+                    self.eof_id = len(vocab) - 1
         self.special_tokens = sorted(special_tokens, key=len, reverse=True) if special_tokens is not None else []
 
         self._decode_vocab = vocab
@@ -29,6 +31,9 @@ class BPETokenizer(object):
         self._encode_cache = {}
         self._temp = 0
 
+    @property
+    def eof(self):
+        return self.eof_id
 
     def _pre_tokenizer(self, text: str):
         if len(self.special_tokens) > 0:
