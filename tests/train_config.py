@@ -25,11 +25,11 @@ class OptimConfig:
 
 @dataclass
 class RuntimeConfig:
-    max_steps: int = 10000
+    max_steps: int = 3000
     batch_size: int = 128
-    eval_interval: int = 500
-    log_interval: int = 500
-    checkpoint_interval: int = 1000
+    eval_interval: int = 100
+    log_interval: int = 10
+    checkpoint_interval: int = 500
     random_seed: int = -1
     device: str = "cuda:0"
     checkpoint_path: str = "checkpoints/"

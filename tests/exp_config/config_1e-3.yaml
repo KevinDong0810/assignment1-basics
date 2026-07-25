@@ -1,0 +1,5 @@
+optimizer:
+    lr: 1.0e-3
+    min_lr: 1.0e-4
+    warmup_steps: 500
+    cos_steps: 10000
