@@ -334,7 +334,7 @@ class BPETrainer(object):
 
         with open(os.path.join(output_dir, "vocab.json"), "w", encoding="utf-8") as f:
             vocab_serializable = {
-                idx: "".join(byte_encoder[b] for b in token)
+                "".join(byte_encoder[b] for b in token): idx
                 for idx, token in self.vocab.items()
             }
             json.dump(vocab_serializable, f, ensure_ascii=False, indent=2)
@@ -343,9 +343,9 @@ if __name__ == "__main__":
     import sys
     import json
     input_path = sys.argv[1]
-    vocab_size = 32000
+    vocab_size = 10000
     special_tokens = ["<|endoftext|>"]
 
     trainer = BPETrainer(vocab_size, special_tokens)
     trainer.train(input_path, True)
-    trainer.write_results("output/owt")
+    trainer.write_results("output/TinyStories")

@@ -4,7 +4,6 @@ import torch
 from torch import nn
 import numpy as np
 from einops import rearrange, einsum, reduce
-from .bpe_tokenizer import BPETokenizer
 
 class Linear(nn.Module):
 
@@ -363,7 +362,7 @@ class TransformerLM(nn.Module):
 
 class LLMDecoder(object):
 
-    def __init__(self, llm_module: TransformerLM, tokenizer: BPETokenizer):
+    def __init__(self, llm_module: TransformerLM, tokenizer):
         self.llm_module = llm_module
         self.tokenizer = tokenizer
 
@@ -411,12 +410,12 @@ class LLMDecoder(object):
 
 
 def gpt2_xl_memory_cal(batch_size):
-    vocab_size = 50257
-    context_length = 1024
-    num_layers = 48
-    d_model = 1600
-    num_heads = 25
-    d_ff = 4288
+    vocab_size = 10000
+    context_length = 256
+    num_layers = 4
+    d_model = 512
+    num_heads = 16
+    d_ff = 1344
 
     xl_lm = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, 1000)
 
@@ -430,12 +429,12 @@ def gpt2_xl_memory_cal(batch_size):
 
 def gpt2_training_hours(batch_size, steps):
 
-    vocab_size = 50257
-    context_length = 1024
-    num_layers = 48
-    d_model = 1600
-    num_heads = 25
-    d_ff = 4288
+    vocab_size = 10000
+    context_length = 256
+    num_layers = 4
+    d_model = 512
+    num_heads = 16
+    d_ff = 1344
 
     xl_lm = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, 1000)
 
@@ -446,4 +445,4 @@ def gpt2_training_hours(batch_size, steps):
 
 
 if __name__ == "__main__":
-    gpt2_training_hours(1024, 400000)
+    gpt2_xl_memory_cal(128)

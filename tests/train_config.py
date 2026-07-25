@@ -3,20 +3,20 @@ from typing import Any
 
 @dataclass
 class ModelConfig:
-    vocab_size: int = 50257
-    context_length: int = 1024
-    num_layers: int = 12
-    num_heads: int = 12
-    d_model: int = 768
-    d_ff: int = 2048
-    theta: int = 1000
+    vocab_size: int = 10000
+    context_length: int = 256
+    num_layers: int = 4
+    num_heads: int = 16
+    d_model: int = 512
+    d_ff: int = 1344
+    theta: int = 10000
 
 @dataclass
 class OptimConfig:
     lr: float = 1e-3
     min_lr: float = 1e-5
-    warmup_steps: int = 5000
-    cos_steps: int = 20000
+    warmup_steps: int = 1000
+    cos_steps: int = 8000
     weight_decay: float = 0.01
     beta1: float = 0.9
     beta2: float = 0.99
@@ -25,10 +25,10 @@ class OptimConfig:
 
 @dataclass
 class RuntimeConfig:
-    max_steps: int = 5000
-    batch_size: int = 32
+    max_steps: int = 10000
+    batch_size: int = 128
     eval_interval: int = 500
-    log_interval: int = 10
+    log_interval: int = 500
     checkpoint_interval: int = 1000
     random_seed: int = -1
     device: str = "cuda:0"
