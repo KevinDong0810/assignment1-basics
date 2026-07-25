@@ -33,6 +33,11 @@ def prepare(config: config_utlis.TrainConfig):
     return network, optimizer
 
 
+def get_lr(cur_it: int, config: config_utlis.TrainConfig):
+    return train_utlis.lr_cosine_func(cur_it, config.optimizer.lr, config.optimizer.min_lr, 
+                                      config.optimizer.warmup_steps, config.optimizer.cos_steps)
+
+
 def train(model: network_utlis.TransformerLM, optimizer: train_utlis.AdamW, train_dataset, val_dataset, config: config_utlis.TrainConfig, restore_path=None, exp_name="llm_test"):
     start = 0
     loss_func = train_utlis.CrossEntropyLoss()
@@ -51,10 +56,13 @@ def train(model: network_utlis.TransformerLM, optimizer: train_utlis.AdamW, trai
 
         for step in range(start, config.runtime.max_steps):
             optimizer.zero_grad()
+            cur_lr = get_lr(step, config)
             x, y = train_utlis.sample_from_dataset(train_dataset, config.runtime.batch_size, config.model.context_length, device=config.runtime.device)
             logits = model(x)
             loss = loss_func(logits, y)
             loss.backward()
+            for param in optimizer.param_groups:
+                param["lr"] = cur_lr
             optimizer.step()
             
             if step % config.runtime.checkpoint_interval == 0:
@@ -76,7 +84,8 @@ def train(model: network_utlis.TransformerLM, optimizer: train_utlis.AdamW, trai
             if step % config.runtime.log_interval == 0:
                 log_dict = {
                     "global_step": step,
-                    "train/loss": loss.item()
+                    "train/loss": loss.item(),
+                    "train/lr": cur_lr
                 }
                 if step % config.runtime.eval_interval == 0:
                     log_dict["val/loss"] = val_loss

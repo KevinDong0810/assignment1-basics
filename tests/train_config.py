@@ -14,6 +14,9 @@ class ModelConfig:
 @dataclass
 class OptimConfig:
     lr: float = 1e-3
+    min_lr: float = 1e-5
+    warmup_steps: int = 5000
+    cos_steps: int = 20000
     weight_decay: float = 0.01
     beta1: float = 0.9
     beta2: float = 0.99
