@@ -7,9 +7,10 @@ from .common import gpt2_bytes_to_unicode
 class BPETokenizer(object):
 
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens=None):
+        self.eof_id = -1
         if vocab is not None and merges is not None:
             self.init(vocab, merges, special_tokens)
-        self.eof_id = -1
+        
 
     def init(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens=None):
         if special_tokens:
@@ -30,6 +31,8 @@ class BPETokenizer(object):
         self._merge_list_length = len(merges)
         self._encode_cache = {}
         self._temp = 0
+
+        self.eof_id = self._encode_vocab["<|endoftext|>".encode()]
 
     @property
     def eof(self):

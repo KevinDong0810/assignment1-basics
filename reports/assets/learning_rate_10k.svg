@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="600" viewBox="0 0 1120 600" role="img">
+<title>Long-run validation loss after resuming at step 3000</title>
+<rect width="1120" height="600" fill="#ffffff"/>
+<style>text{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#24292f}.grid{stroke:#d8dee4;stroke-width:1}.axis{stroke:#57606a;stroke-width:1.5}.curve{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}.tick{font-size:13px}.legend{font-size:14px}.title{font-size:20px;font-weight:600}.label{font-size:15px;font-weight:500}</style>
+<text class="title" x="435" y="32" text-anchor="middle">Long-run validation loss after resuming at step 3000</text>
+<line class="grid" x1="80.00" y1="60" x2="80.00" y2="520"/>
+<text class="tick" x="80.00" y="544" text-anchor="middle">3000</text>
+<line class="grid" x1="222.00" y1="60" x2="222.00" y2="520"/>
+<text class="tick" x="222.00" y="544" text-anchor="middle">4400</text>
+<line class="grid" x1="364.00" y1="60" x2="364.00" y2="520"/>
+<text class="tick" x="364.00" y="544" text-anchor="middle">5800</text>
+<line class="grid" x1="506.00" y1="60" x2="506.00" y2="520"/>
+<text class="tick" x="506.00" y="544" text-anchor="middle">7200</text>
+<line class="grid" x1="648.00" y1="60" x2="648.00" y2="520"/>
+<text class="tick" x="648.00" y="544" text-anchor="middle">8600</text>
+<line class="grid" x1="790.00" y1="60" x2="790.00" y2="520"/>
+<text class="tick" x="790.00" y="544" text-anchor="middle">10000</text>
+<line class="grid" x1="80" y1="60.00" x2="790" y2="60.00"/>
+<text class="tick" x="68" y="64.00" text-anchor="end">2.20</text>
+<line class="grid" x1="80" y1="117.50" x2="790" y2="117.50"/>
+<text class="tick" x="68" y="121.50" text-anchor="end">2.14</text>
+<line class="grid" x1="80" y1="175.00" x2="790" y2="175.00"/>
+<text class="tick" x="68" y="179.00" text-anchor="end">2.08</text>
+<line class="grid" x1="80" y1="232.50" x2="790" y2="232.50"/>
+<text class="tick" x="68" y="236.50" text-anchor="end">2.01</text>
+<line class="grid" x1="80" y1="290.00" x2="790" y2="290.00"/>
+<text class="tick" x="68" y="294.00" text-anchor="end">1.95</text>
+<line class="grid" x1="80" y1="347.50" x2="790" y2="347.50"/>
+<text class="tick" x="68" y="351.50" text-anchor="end">1.89</text>
+<line class="grid" x1="80" y1="405.00" x2="790" y2="405.00"/>
+<text class="tick" x="68" y="409.00" text-anchor="end">1.82</text>
+<line class="grid" x1="80" y1="462.50" x2="790" y2="462.50"/>
+<text class="tick" x="68" y="466.50" text-anchor="end">1.76</text>
+<line class="grid" x1="80" y1="520.00" x2="790" y2="520.00"/>
+<text class="tick" x="68" y="524.00" text-anchor="end">1.70</text>
+<line class="axis" x1="80" y1="520" x2="790" y2="520"/>
+<line class="axis" x1="80" y1="60" x2="80" y2="520"/>
+<text class="label" x="435" y="575" text-anchor="middle">optimizer step</text>
+<text class="label" transform="translate(20 290) rotate(-90)" text-anchor="middle">validation loss (per token)</text>
+<polyline class="curve" stroke="#0969da" points="80.00,143.81 90.14,155.29 100.29,161.68 110.43,166.51 120.57,184.50 130.71,190.02 140.86,204.46 151.00,203.78 161.14,206.91 171.29,224.42 181.43,227.64 191.57,229.69 201.71,236.90 211.86,238.58 222.00,245.42 232.14,256.83 242.29,261.35 252.43,261.41 262.57,272.62 272.71,267.44 282.86,279.16 293.00,282.82 303.14,285.66 313.29,295.17 323.43,299.10 333.57,297.67 343.71,308.50 353.86,302.90 364.00,306.66 374.14,319.75 384.29,323.17 394.43,323.43 404.57,330.29 414.71,332.69 424.86,327.16 435.00,335.33 445.14,324.57 455.29,338.83 465.43,340.08 475.57,348.22 485.71,348.55 495.86,358.92 506.00,361.62 516.14,355.71 526.29,353.32 536.43,363.63 546.57,354.38 556.71,372.09 566.86,366.32 577.00,369.70 587.14,375.41 597.29,370.17 607.43,373.41 617.57,381.00 627.71,368.91 637.86,373.85 648.00,374.94 658.14,382.64 668.29,382.28 678.43,382.85 688.57,383.16 698.71,384.09 708.86,385.53 719.00,392.46 729.14,391.47 739.29,391.39 749.43,388.26 759.57,389.71 769.71,386.88 779.86,388.57 "/>
+<line x1="825" y1="82" x2="855" y2="82" stroke="#0969da" stroke-width="3"/>
+<text class="legend" x="866" y="87">lr=1e-3</text>
+<polyline class="curve" stroke="#1a7f37" points="80.00,210.38 90.14,226.99 100.29,231.97 110.43,240.93 120.57,241.66 130.71,247.17 140.86,264.64 151.00,259.10 161.14,273.62 171.29,279.01 181.43,280.44 191.57,287.50 201.71,294.17 211.86,303.92 222.00,310.85 232.14,310.92 242.29,316.77 252.43,325.37 262.57,326.93 272.71,336.59 282.86,329.33 293.00,340.76 303.14,351.15 313.29,350.70 323.43,344.49 333.57,365.57 343.71,372.12 353.86,374.62 364.00,370.04 374.14,367.82 384.29,383.09 394.43,385.41 404.57,386.52 414.71,392.33 424.86,395.08 435.00,399.94 445.14,404.22 455.29,398.38 465.43,409.26 475.57,410.40 485.71,410.47 495.86,412.36 506.00,418.53 516.14,421.18 526.29,420.94 536.43,430.11 546.57,424.26 556.71,430.75 566.86,434.78 577.00,436.76 587.14,444.64 597.29,435.57 607.43,447.68 617.57,439.45 627.71,453.38 637.86,441.94 648.00,454.46 658.14,444.53 668.29,452.76 678.43,452.76 688.57,453.05 698.71,457.41 708.86,463.67 719.00,455.90 729.14,459.49 739.29,467.01 749.43,464.32 759.57,465.45 769.71,463.33 779.86,461.69 "/>
+<line x1="825" y1="108" x2="855" y2="108" stroke="#1a7f37" stroke-width="3"/>
+<text class="legend" x="866" y="113">lr=3e-3</text>
+</svg>
